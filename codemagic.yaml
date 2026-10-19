@@ -1,0 +1,76 @@
+workflows:
+  solardraft-website-ci:
+    name: SolarDraft website - test
+    max_build_duration: 20
+    instance_type: linux_x2
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Check toolchain
+        script: |
+          node --version
+          python3 --version
+      - name: Run SolarDraft site checks
+        script: |
+          python3 tests/check_site.py
+      - name: Package website artifact
+        script: |
+          mkdir -p build/site
+          cp site/index.html build/site/index.html
+          test -s build/site/index.html
+    artifacts:
+      - build/site/index.html
+
+  solardraft-pages-deploy:
+    name: SolarDraft website - deploy to GitHub Pages
+    max_build_duration: 20
+    instance_type: linux_x2
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    environment:
+      groups:
+        - github_pages
+      vars:
+        GITHUB_REPOSITORY: "Olivix4/Solar-draft"
+    scripts:
+      - name: Check toolchain
+        script: |
+          node --version
+          python3 --version
+      - name: Run SolarDraft site checks
+        script: |
+          python3 tests/check_site.py
+      - name: Prepare clean Pages directory
+        script: |
+          rm -rf build/site
+          mkdir -p build/site
+          cp site/index.html build/site/index.html
+          test -s build/site/index.html
+      - name: Publish gh-pages branch
+        script: |
+          set -eu
+          if [ -z "${GH_PAGES_TOKEN:-}" ]; then
+            echo "Missing GH_PAGES_TOKEN. Add it as a Secret in the github_pages variable group in Codemagic."
+            exit 1
+          fi
+          cd build/site
+          git init
+          git checkout -b gh-pages
+          git config user.name "SolarDraft Codemagic"
+          git config user.email "codemagic@users.noreply.github.com"
+          git add index.html
+          git commit -m "Deploy SolarDraft build ${BUILD_NUMBER:-manual}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          AUTH_HEADER="$(printf 'x-access-token:%s' "$GH_PAGES_TOKEN" | base64 | tr -d '\n')"
+          git -c "http.extraheader=AUTHORIZATION: basic ${AUTH_HEADER}" push --force origin gh-pages
+    artifacts:
+      - build/site/index.html
