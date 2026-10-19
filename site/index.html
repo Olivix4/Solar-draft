@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SolarDraft — PV Diagram Generator</title>
+<style>
+:root{--ink:#172235;--muted:#66758b;--line:#dbe3ee;--bg:#f4f7fb;--blue:#2459d3;--green:#16836b;--orange:#b85d16}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,Segoe UI,Arial,sans-serif}
+header{background:#10213c;color:white;padding:24px clamp(18px,4vw,48px);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:24px;margin:0}header p{margin:4px 0 0;color:#c4d0e2}.pill{border:1px solid #51627a;border-radius:20px;padding:6px 12px;font-size:12px}
+main{max-width:1500px;margin:auto;padding:22px;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:20px}
+aside,.workspace{min-width:0}.card{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 3px 12px #10213c08}
+h2{font-size:17px;margin:0 0 14px}h3{font-size:14px;margin:15px 0 8px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}label{font-size:12px;font-weight:650;color:#4c5c72}input,select{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:white;color:var(--ink);font:inherit;min-width:0}input:focus,select:focus{outline:2px solid #8fb2ff;border-color:var(--blue)}
+button{border:1px solid var(--line);border-radius:9px;background:white;color:var(--ink);padding:10px 13px;font-weight:650;cursor:pointer}button.primary{background:var(--blue);color:white;border-color:var(--blue)}button:hover{filter:brightness(.97)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.help{font-size:12px;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.stat{background:#f8faff;border:1px solid var(--line);border-radius:10px;padding:12px}.stat small{display:block;color:var(--muted);font-size:11px}.stat strong{font-size:19px;display:block;margin-top:3px}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.tabs button[aria-pressed=true]{background:#e8efff;border-color:#9ab5fa;color:#1647b6}.drawing{border:1px solid #cbd5e1;border-radius:12px;background:linear-gradient(135deg,#f8fafc,#eef3f8);overflow:auto;min-height:280px;box-shadow:inset 0 1px 5px #0f172a0d}.drawing svg{display:block;width:100%;min-width:760px;height:auto}.status{border-radius:9px;padding:12px 14px;margin-bottom:12px;font-size:13px}.status.warn{background:#fff7e8;border:1px solid #f3d59d}.status.ok{background:#eaf8f3;border:1px solid #a9ddcb}.status ul{margin:7px 0 0;padding-left:20px}.bom{width:100%;border-collapse:collapse;font-size:13px}.bom th,.bom td{text-align:left;padding:9px;border-bottom:1px solid var(--line)}.bom th{color:var(--muted);font-size:11px;text-transform:uppercase}.footer{max-width:1500px;margin:auto;padding:0 22px 28px;color:var(--muted);font-size:12px}
+@media(max-width:900px){main{grid-template-columns:1fr;padding:12px}.stats{grid-template-columns:repeat(3,1fr)}}@media(max-width:460px){.fields{grid-template-columns:1fr}.field.full{grid-column:auto}.stats{grid-template-columns:1fr 1fr}}
+@media print{header,aside,.tabs,.actions,.footer{display:none!important}body{background:white}main{display:block;padding:0}.card{box-shadow:none;border:0;padding:0}.drawing{overflow:visible}.drawing svg{min-width:0;width:100%}.workspace .card:not(.diagram-card){display:none}}
+</style>
+</head>
+<body>
+<header><div><h1>☀ SolarDraft</h1><p>Solar PV design inputs · electrical diagram drafts · equipment schedule</p></div><span class="pill">Engineering prototype · v0.2</span></header>
+<main>
+<aside>
+<section class="card"><h2>01 · Project & system</h2><div class="fields">
+<div class="field full"><label for="project">Project name</label><input id="project" value="Rooftop Solar PV Project"></div>
+<div class="field"><label for="system">System architecture</label><select id="system"><option value="grid">Grid-connected</option><option value="hybrid">Hybrid + battery</option><option value="offgrid">Off-grid + battery</option></select></div>
+<div class="field"><label for="phases">AC system</label><select id="phases"><option value="3">3-phase, 400 V</option><option value="1">1-phase, 230 V</option></select></div>
+<div class="field"><label for="standard">Design basis</label><select id="standard"><option>IEC (verify local adoption)</option><option>NEC / NFPA (verify edition)</option><option>Other / project-specific</option></select></div>
+<div class="field"><label for="frequency">Frequency (Hz)</label><select id="frequency"><option>50</option><option>60</option></select></div>
+</div></section>
+<section class="card"><h2>02 · PV array & module</h2><div class="fields">
+<div class="field"><label for="strings">Number of strings</label><input id="strings" type="number" min="1" max="40" value="4"></div>
+<div class="field"><label for="modules">Modules / string</label><input id="modules" type="number" min="1" max="40" value="18"></div>
+<div class="field"><label for="pmax">Module Pmax (Wp)</label><input id="pmax" type="number" min="50" max="1000" value="550"></div>
+<div class="field"><label for="voc">Module Voc (V)</label><input id="voc" type="number" min="1" max="100" step=".1" value="49.5"></div>
+<div class="field"><label for="vmp">Module Vmp (V)</label><input id="vmp" type="number" min="1" max="100" step=".1" value="41.5"></div>
+<div class="field"><label for="isc">Module Isc (A)</label><input id="isc" type="number" min=".1" max="40" step=".1" value="14"></div>
+<div class="field"><label for="imp">Module Imp (A)</label><input id="imp" type="number" min=".1" max="40" step=".1" value="13.25"></div>
+<div class="field"><label for="temp">Minimum design temp (°C)</label><input id="temp" type="number" min="-60" max="35" value="-5"></div>
+<div class="field"><label for="beta">Voc temp coefficient (%/°C)</label><input id="beta" type="number" min="-1" max="0" step=".01" value="-.28"></div>
+<div class="field"><label for="maxdc">Inverter max DC voltage (V)</label><input id="maxdc" type="number" min="50" max="2000" value="1100"></div>
+</div><p class="help">Use actual manufacturer datasheets. Temperature correction here is a screening estimate; confirm the coefficient convention and required design method.</p></section>
+<section class="card"><h2>03 · Inverter & MPPT</h2><div class="fields">
+<div class="field"><label for="invkw">Inverter AC rating (kW)</label><input id="invkw" type="number" min="0.1" max="10000" step=".1" value="40"></div>
+<div class="field"><label for="mppts">Number of MPPTs</label><input id="mppts" type="number" min="1" max="40" value="4"></div>
+<div class="field"><label for="mpptvmin">MPPT min voltage (V)</label><input id="mpptvmin" type="number" min="1" max="2000" value="200"></div>
+<div class="field"><label for="mpptvmax">MPPT max voltage (V)</label><input id="mpptvmax" type="number" min="1" max="2000" value="1000"></div>
+<div class="field"><label for="mpptimax">Max current per MPPT (A)</label><input id="mpptimax" type="number" min=".1" max="1000" value="30"></div>
+<div class="field"><label for="invmodel">Equipment model</label><select id="invmodel"><option>Generic inverter (placeholder)</option><option>Custom / datasheet to be entered</option></select></div>
+</div><p class="help">Prototype assumption: strings are distributed evenly across MPPTs. Real inverters can have multiple string inputs per MPPT; use the selected model's input-current and short-circuit-current limits.</p></section>
+<section class="card"><h2>04 · Battery & protection</h2><div class="fields">
+<div class="field"><label for="battery">Battery installed?</label><select id="battery"><option value="auto">Follow system type</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+<div class="field"><label for="bvoltage">Battery nominal voltage (V)</label><input id="bvoltage" type="number" min="12" max="2000" value="512"></div>
+<div class="field"><label for="benergy">Battery energy (kWh)</label><input id="benergy" type="number" min=".1" max="100000" step=".1" value="20"></div>
+<div class="field"><label for="dcspd">DC SPD</label><select id="dcspd"><option value="yes">Show</option><option value="no">Hide</option></select></div>
+<div class="field"><label for="acspd">AC SPD</label><select id="acspd"><option value="yes">Show</option><option value="no">Hide</option></select></div>
+<div class="field"><label for="fuses">String overcurrent protection</label><select id="fuses"><option value="yes">Show (verify required)</option><option value="no">Not shown</option></select></div>
+<div class="field"><label for="isolator">DC isolator</label><select id="isolator"><option value="yes">Show</option><option value="no">Hide</option></select></div>
+<div class="field"><label for="earth">Protective earthing</label><select id="earth"><option value="yes">Show PE</option><option value="no">Not shown</option></select></div>
+</div></section>
+<div class="actions"><button class="primary" id="generate">Validate & generate</button><button id="reset">Reset example</button></div>
+</aside>
+<section class="workspace">
+<div class="stats">
+<div class="stat"><small>Array DC capacity</small><strong id="capacity">39.60 kWp</strong></div>
+<div class="stat"><small>DC / AC ratio</small><strong id="ratio">0.99</strong></div>
+<div class="stat"><small>Estimated cold Voc / string</small><strong id="coldvoc">—</strong></div>
+</div>
+<div id="validation" class="status warn" role="status">Run validation to review assumptions and design checks.</div>
+<section class="card diagram-card"><h2>05 · Diagram preview</h2>
+<div class="tabs"><button data-view="sld" aria-pressed="true">Single-line diagram (SLD)</button><button data-view="three" aria-pressed="false">Three-line diagram</button></div>
+<div class="drawing" id="drawing" aria-label="Solar electrical diagram preview"></div>
+<div class="actions"><button class="primary" id="download">Download SVG</button><button id="print">Print / Save PDF</button></div>
+<p class="help">Equipment faces now use device-specific visual details (PV cell grid, inverter display and cooling vents, breaker toggles, SPD indicator, meter display and distribution-board breakers), alongside screw/clamp terminals. These are realistic-looking generic illustrations; exact terminal geometry depends on the selected manufacturer/model. Colour-coded conductors, equipment housings and cable IDs make connections easier to trace. IEC-style colours are illustrative only; confirm the local wiring code and manufacturer terminal diagram.</p>
+<h3>Cable connection schedule</h3><div style="overflow-x:auto"><table class="bom"><thead><tr><th>Cable</th><th>From → To</th><th>Conductors shown</th><th>Purpose / notes</th></tr></thead><tbody id="cables"></tbody></table></div>
+</section>
+<section class="card"><h2>06 · Equipment schedule / bill of materials</h2><div style="overflow-x:auto"><table class="bom"><thead><tr><th>Tag</th><th>Equipment</th><th>Qty</th><th>Specification / status</th></tr></thead><tbody id="bom"></tbody></table></div>
+<p class="help">Equipment library currently contains generic symbol/specification templates, not verified commercial SKUs. Add exact model datasheets before design approval.</p></section>
+</section>
+</main>
+<div class="footer">Design-assistance prototype only. Standards are copyrighted; this tool does not reproduce the full requirements or certify compliance. A qualified electrical designer must verify local code, equipment instructions, fault protection, cable ampacity and voltage drop, thermal conditions, earthing, isolation, protection coordination and utility requirements.</div>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);let view='sld';
+const ids=['project','system','phases','standard','frequency','strings','modules','pmax','voc','vmp','isc','imp','temp','beta','maxdc','invkw','mppts','mpptvmin','mpptvmax','mpptimax','invmodel','battery','bvoltage','benergy','dcspd','acspd','fuses','isolator','earth'];
+const initial={};ids.forEach(id=>initial[id]=$(id).value);
+const num=id=>Number($(id).value),yes=id=>$(id).value==='yes';
+function calc(){
+ const n=num('strings'),m=num('modules'),p=num('pmax'),voc=num('voc'),vmp=num('vmp'),isc=num('isc'),imp=num('imp'),t=num('temp'),beta=num('beta'),maxdc=num('maxdc'),kw=num('invkw'),mp=num('mppts'),vmin=num('mpptvmin'),vmax=num('mpptvmax'),imax=num('mpptimax');
+ const cap=n*m*p/1000, coldVoc=m*voc*(1+(beta/100)*(t-25)),hotScreen=m*vmp*(1+(-0.35/100)*(70-25)),per=n/mp, parallel=Math.ceil(per);
+ const errors=[],warnings=[],checks=[];
+ if(!Number.isInteger(n)||n<1||n>40)errors.push('String count must be an integer from 1 to 40.');
+ if(!Number.isInteger(m)||m<1||m>40)errors.push('Modules per string must be an integer from 1 to 40.');
+ if(!Number.isInteger(mp)||mp<1||mp>40)errors.push('MPPT count must be an integer from 1 to 40.');
+ if([p,voc,vmp,isc,imp,maxdc,kw,vmin,vmax,imax].some(x=>!Number.isFinite(x)||x<=0))errors.push('Electrical ratings must all be positive numeric values.');
+ if(voc<=vmp)errors.push('Module Voc should be greater than Vmp; check datasheet values.');
+ if(isc<imp)warnings.push('Module Isc is lower than Imp; confirm the entered datasheet values.');
+ if(coldVoc>maxdc)errors.push(`Estimated cold string Voc (${coldVoc.toFixed(1)} V) exceeds inverter maximum DC voltage (${maxdc} V).`);
+ else warnings.push('Cold string Voc is only a screening estimate; verify using the module coefficient, minimum site temperature and applicable design method.');
+ const vmpString=m*vmp;
+ if(vmpString<vmin||vmpString>vmax)warnings.push(`String Vmp at STC (${vmpString.toFixed(1)} V) is outside the entered MPPT voltage range (${vmin}–${vmax} V). Recheck hot/cold operating range.`);
+ if(parallel*imp>imax)warnings.push(`Even distribution gives up to ${parallel} string(s) per MPPT; estimated operating current ${ (parallel*imp).toFixed(1)} A exceeds entered MPPT current limit ${imax} A. Confirm actual input allocation and limits.`);
+ if(cap/kw>1.5)warnings.push('DC/AC ratio exceeds 1.50; check inverter oversizing limits and clipping design.');
+ if(n%mp!==0)warnings.push('Strings do not divide evenly across MPPTs; the drawing shows an indicative allocation only.');
+ if($( 'system').value!=='grid' && $('battery').value==='no')warnings.push('Selected system architecture usually requires a battery or another grid-forming energy source; verify intended topology.');
+ if($('system').value==='grid' && $('battery').value==='yes')warnings.push('Battery selected with grid-connected architecture; confirm inverter topology and battery coupling.');
+ if(!yes('fuses'))warnings.push('String overcurrent protection is hidden in the diagram; determine if protection is required by array design and equipment instructions.');
+ if(!yes('earth'))warnings.push('Protective earthing is hidden; earthing and bonding must be designed and shown before construction.');
+ warnings.push('Cable sizing, voltage drop, short-circuit ratings, fault-loop/disconnection, breaker coordination, SPD selection, battery protection and utility interface are not calculated in this prototype.');
+ checks.push('Entered numeric values and basic module voltage relationship reviewed.');
+ checks.push('Estimated cold string Voc: '+coldVoc.toFixed(1)+' V vs inverter max '+maxdc+' V.');
+ checks.push('STC string Vmp: '+vmpString.toFixed(1)+' V; approximate strings per MPPT: '+parallel+'.');
+ $('capacity').textContent=cap.toFixed(2)+' kWp';$('ratio').textContent=(cap/kw).toFixed(2);$('coldvoc').textContent=coldVoc.toFixed(1)+' V';
+ const v=$('validation');v.className='status '+(errors.length?'warn':warnings.length?'warn':'ok');
+ v.innerHTML='<strong>'+(errors.length?'Design checks failed':warnings.length?'Review required':'Basic screening checks passed')+'</strong><ul>'+errors.map(x=>'<li><b>BLOCKER:</b> '+esc(x)+'</li>').concat(warnings.map(x=>'<li><b>CHECK:</b> '+esc(x)+'</li>')).concat(checks.map(x=>'<li>'+esc(x)+'</li>')).join('')+'</ul>';
+ draw({n,m,cap,kw,mp,ph:$('phases').value,system:$('system').value,errors,warnings,coldVoc,vmpString,parallel});
+ bom({n,m,p,cap,kw,mp,isc,imp,coldVoc});
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function bom(d){
+ const battery=$('battery').value==='yes'||($('battery').value==='auto'&&$('system').value!=='grid');
+ const rows=[
+ ['PV-01','PV modules',d.n*d.m,`${$('pmax').value} Wp each; ${d.cap.toFixed(2)} kWp total`],
+ ['INV-01','PV inverter',1,`${d.kw} kW AC; ${d.mp} MPPTs; generic placeholder`],
+ ['DC-CB-01','DC combiner / string input assembly',1,`${d.n} string inputs; final arrangement TBD`],
+ ['F-DC','String fuses / overcurrent devices',$('fuses').value==='yes'?d.n:0,$('fuses').value==='yes'?'Rating and need must be verified':'Not shown'],
+ ['ISO-DC','DC isolator',$('isolator').value==='yes'?1:0,$('isolator').value==='yes'?'DC voltage/current rating TBD':'Not shown'],
+ ['SPD-DC','DC surge protective device',$('dcspd').value==='yes'?1:0,$('dcspd').value==='yes'?'Type, Ucpv and coordination TBD':'Not shown'],
+ ['CB-AC','AC breaker / disconnect',1,'Poles, trip, breaking capacity and coordination TBD'],
+ ['SPD-AC','AC surge protective device',$('acspd').value==='yes'?1:0,$('acspd').value==='yes'?'Type and rating TBD':'Not shown'],
+ ['M-AC','Energy meter / grid interface',1,'Utility requirements TBD'],
+ ['PE-01','Protective earth / bonding',$('earth').value==='yes'?'As required':0,$('earth').value==='yes'?'Conductor and bonding design TBD':'Not shown'],
+ ['BAT-01','Battery energy storage',battery?1:0,battery?`${$('benergy').value} kWh nominal; ${$('bvoltage').value} V; model TBD`:'Not selected']
+ ];
+ $('bom').innerHTML=rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td></tr>`).join('');
+}
+function draw(d){
+ const three=view==='three',W=1200,H=three?850:830;let s=[],cableRows=[];
+ const txt=(x,y,t,size=12,weight=400,anchor='middle',fill='#1e293b')=>`<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="Arial,sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}">${esc(t)}</text>`;
+ const line=(x1,y1,x2,y2,c='#34445c',w=2,dash='')=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+ const terminal=(x,y,label,color='#334155',anchor='middle')=>`<g>
+   <rect x="${x-6.2}" y="${y-5.2}" width="12.4" height="10.4" rx="2" fill="#cbd5e1" stroke="#64748b" stroke-width="1"/>
+   <circle cx="${x}" cy="${y}" r="4.1" fill="#e5e7eb" stroke="#475569" stroke-width="1.2"/>
+   <circle cx="${x}" cy="${y}" r="2.8" fill="#94a3b8" stroke="#f8fafc" stroke-width=".65"/>
+   <path d="M${x-2} ${y-1.5} L${x+2} ${y+1.5}" stroke="#334155" stroke-width="1.1" stroke-linecap="round"/>
+   <path d="M${x-4.5} ${y+4.2} H${x+4.5}" stroke="#f8fafc" stroke-width=".8"/>
+   ${label?txt(x,y-8,label,8,700,anchor,color):''}</g>`;
+ const box=(x,y,w,h,title,sub='',fill='#f8fafc',stroke='#62748a')=>{
+   let detail='';
+   // Device-specific face details: PV laminate, inverter display/vents, breaker toggles, SPD windows and meter/DB hardware.
+   if(title.includes('PV STRINGS')){
+     detail=`<rect x="${x+12}" y="${y+7}" width="${w-24}" height="${h-16}" rx="2" fill="#173b67" stroke="#8bb4d8" stroke-width="1"/>`;
+     for(let gx=1;gx<6;gx++)detail+=`<path d="M${x+12+gx*(w-24)/6} ${y+8} V${y+h-10}" stroke="#9cc8e9" stroke-width=".65"/>`;
+     for(let gy=1;gy<3;gy++)detail+=`<path d="M${x+13} ${y+7+gy*(h-16)/3} H${x+w-13}" stroke="#9cc8e9" stroke-width=".65"/>`;
+   } else if(title.includes('INVERTER')){
+     detail=`<rect x="${x+w-40}" y="${y+7}" width="25" height="12" rx="2" fill="#172b3e" stroke="#9ca3af" stroke-width=".7"/><rect x="${x+w-37}" y="${y+10}" width="19" height="5" rx="1" fill="#a7f3d0"/><circle cx="${x+16}" cy="${y+17}" r="2.2" fill="#22c55e"/>`;
+     for(let k=0;k<4;k++)detail+=`<path d="M${x+13} ${y+27+k*4} H${x+w-13}" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>`;
+   } else if(title.includes('BREAKER')||title.includes('OCPD')||title.includes('FUSE')){
+     const units=Math.max(1,Math.min(4,Math.floor((w-18)/25)));
+     for(let k=0;k<units;k++){const bx=x+9+k*((w-18)/units);detail+=`<rect x="${bx}" y="${y+6}" width="${(w-22)/units}" height="${h-14}" rx="2" fill="#f8fafc" stroke="#94a3b8" stroke-width=".8"/><rect x="${bx+4}" y="${y+15}" width="${Math.max(5,(w-22)/units-8)}" height="13" rx="2" fill="#334155" stroke="#0f172a" stroke-width=".6"/><path d="M${bx+6} ${y+24} l4 -4 l4 4" fill="none" stroke="#e2e8f0" stroke-width="1.2"/><circle cx="${bx+((w-22)/units)/2}" cy="${y+10}" r="1.5" fill="#dc2626"/>`}
+   } else if(title.includes('SPD')){
+     detail=`<rect x="${x+10}" y="${y+7}" width="${w-20}" height="${h-14}" rx="3" fill="#e5e7eb" stroke="#9ca3af" stroke-width=".8"/><rect x="${x+w/2-9}" y="${y+11}" width="18" height="10" rx="2" fill="#14532d" stroke="#86efac" stroke-width=".7"/><circle cx="${x+w/2}" cy="${y+16}" r="2.2" fill="#4ade80"/><path d="M${x+15} ${y+27} H${x+w-15}" stroke="#94a3b8" stroke-width="1.3"/>`;
+   } else if(title.includes('METER')){
+     detail=`<rect x="${x+w/2-25}" y="${y+5}" width="50" height="17" rx="2" fill="#dbeafe" stroke="#64748b" stroke-width=".8"/><rect x="${x+w/2-20}" y="${y+9}" width="40" height="8" rx="1" fill="#b7d7c0"/><path d="M${x+14} ${y+29} H${x+w-14}" stroke="#94a3b8" stroke-width="1.3"/><circle cx="${x+w-15}" cy="${y+30}" r="2" fill="#22c55e"/>`;
+   } else if(title.includes('MAIN DB')||title.includes('AC LOADS')||title.includes('GRID')){
+     detail=`<rect x="${x+9}" y="${y+6}" width="${w-18}" height="${h-13}" rx="2" fill="#e5e7eb" stroke="#94a3b8" stroke-width=".8"/>`;
+     for(let k=0;k<Math.min(5,Math.floor((w-26)/18));k++){const bx=x+14+k*18;detail+=`<rect x="${bx}" y="${y+12}" width="11" height="${h-25}" rx="1.5" fill="#f8fafc" stroke="#64748b" stroke-width=".6"/><rect x="${bx+3}" y="${y+20}" width="5" height="9" rx="1" fill="#334155"/><circle cx="${bx+5.5}" cy="${y+15}" r="1" fill="#dc2626"/>`}
+   } else if(title.includes('BATTERY')){
+     detail=`<rect x="${x+12}" y="${y+6}" width="${w-24}" height="${h-13}" rx="3" fill="#f3e8ff" stroke="#a78bfa" stroke-width="1"/><rect x="${x+w/2-15}" y="${y+10}" width="30" height="5" rx="1.5" fill="#8b5cf6"/>`;
+     for(let k=0;k<4;k++)detail+=`<path d="M${x+20+k*7} ${y+23} v${h-31}" stroke="#c4b5fd" stroke-width="2"/>`;
+   }
+   return `<g filter="url(#deviceShadow)"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="1.6"/><path d="M${x+5} ${y+3} H${x+w-5}" stroke="#ffffff" stroke-opacity=".9" stroke-width="2"/>${detail}<circle cx="${x+5}" cy="${y+5}" r="1.5" fill="#fff" stroke="${stroke}" stroke-width=".7"/><circle cx="${x+w-5}" cy="${y+5}" r="1.5" fill="#fff" stroke="${stroke}" stroke-width=".7"/>${txt(x+w/2,y-5,title,9,700)}${sub?txt(x+w/2,y+h+11,sub,8,400,'middle','#526176'):''}</g>`;
+ };
+ const cable=(id,from,to,conductors,purpose)=>cableRows.push([id,from+' → '+to,conductors,purpose]);
+ const dc='#dc2626',dcNeg='#171717',l1='#8b4513',l2='#171717',l3='#64748b',neutral='#2563eb',earth='#16803c',purple='#7c3aed',ac='#8b4513';
+ s.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}"><defs><filter id="deviceShadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity=".15"/></filter><linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f8fafc"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#paper)"/>`);
+ s.push(txt(W/2,28,`${$('project').value} — ${three?'THREE-LINE':'SINGLE-LINE'} CONNECTION DIAGRAM`,17,700));
+ s.push(txt(W/2,49,`${d.cap.toFixed(2)} kWp PV · ${d.kw} kW inverter · ${d.ph==='3'?'3-phase 400 V':'1-phase 230 V'} · ${d.system==='grid'?'GRID-CONNECTED':d.system==='hybrid'?'HYBRID WITH STORAGE':'OFF-GRID WITH STORAGE'}`,11,400,'middle','#617187'));
+ s.push(txt(22,78,'A. DC SIDE — PV ARRAY TO INVERTER',12,700,'start',dc));
+ const dev=[{x:22,w:145,t:'PV STRINGS',sub:`${d.n} strings × ${d.m} modules`,fill:'#eff6ff',stroke:'#3972d8'},{x:210,w:145,t:'STRING OCPD',sub:yes('fuses')?'fuses / ratings TBD':'not shown',fill:'#fff7ed',stroke:'#c16a25'},{x:400,w:145,t:'DC ISOLATOR',sub:yes('isolator')?'rating TBD':'not shown',fill:'#fff7ed',stroke:'#c16a25'},{x:590,w:160,t:'INVERTER DC INPUT',sub:`${d.mp} MPPTs · ${d.kw} kW`,fill:'#eaf8f3',stroke:'#16836b'}];
+ dev.forEach((q,idx)=>{
+   s.push(box(q.x,105,q.w,58,q.t,q.sub,q.fill,q.stroke));
+   // Realistic-looking screw/clamp terminals on the equipment face. Cable drops below these exact points.
+   const count=idx===0?2:idx===3?6:2;
+   const xs=count===2?[q.x+q.w/2-18,q.x+q.w/2+18]:Array.from({length:count},(_,k)=>q.x+18+k*(q.w-36)/(count-1));
+   xs.forEach((x,k)=>{s.push(`<rect x="${x-7}" y="151" width="14" height="10" rx="1.5" fill="#cbd5e1" stroke="#64748b" stroke-width=".8"/>`);s.push(`<circle cx="${x}" cy="155.5" r="3.4" fill="#e5e7eb" stroke="#475569" stroke-width="1"/><path d="M${x-1.8} 154.5 L${x+1.8} 156.5" stroke="#334155" stroke-width=".9"/>`);if(idx===0||idx===3)s.push(txt(x,145,idx===0?(k===0?'+':'−'):(['PV1+','PV1−','PV2+','PV2−','PV3+','PV3−'][k]||''),7,700,'middle',k%2===0?dc:dcNeg));});
+ });
+ // Separate, continuous positive and negative conductors between the actual device boxes.
+ const dyp=181,dyn=201;
+ s.push(txt(22,dyp+4,'DC+',10,700,'start',dc),txt(22,dyn+4,'DC−',10,700,'start',dcNeg));
+ const starts=[167,355,545],ends=[210,400,590];
+ for(let i=0;i<3;i++){
+   s.push(line(starts[i],dyp,ends[i],dyp,dc,3),line(starts[i],dyn,ends[i],dyn,dcNeg,3));
+   s.push(line(starts[i],163,starts[i],dyp,dc,2.5),line(starts[i],163,starts[i],dyn,dcNeg,2.5),line(ends[i],163,ends[i],dyp,dc,2.5),line(ends[i],163,ends[i],dyn,dcNeg,2.5));
+   s.push(terminal(starts[i],163,'+ ',dc,'end'),terminal(starts[i],163,'− ',dcNeg,'end'),terminal(ends[i],163,'+',dc,'start'),terminal(ends[i],163,'−',dcNeg,'start'));
+   s.push(terminal(ends[i],dyp,'',dc),terminal(ends[i],dyn,'',dcNeg));
+ }
+ s.push(txt(188,223,'C-DC1',9,700,'middle',dc),txt(378,223,'C-DC2',9,700,'middle',dc),txt(567,223,'C-DC3',9,700,'middle',dc));
+ // DC SPD is a shunt branch, not a series component.
+ if(yes('dcspd')){s.push(line(455,201,455,239,neutral,1.8),box(412,239,86,40,'DC SPD','branch to PE','#f1f5f9','#64748b'));if(yes('earth')){s.push(line(455,279,455,293,earth,1.8));s.push(line(440,293,470,293,earth,1.8),line(445,298,465,298,earth,1.8),line(450,303,460,303,earth,1.8));}cable('SPD-DC','DC+ / DC− bus','DC SPD → PE','SPD branch conductors','Not in series; select Ucpv/type and coordinate with inverter and array');}
+ cable('C-DC1','PV string outputs','String overcurrent devices / combiner','String positive (+) and negative (−)','String fuse need and rating depend on module max-series-fuse rating and parallel-string fault current');
+ cable('C-DC2','String protection / combiner','DC isolator input','DC+ and DC−','Conductor size, insulation, polarity and current rating TBD');
+ cable('C-DC3','DC isolator output','Inverter DC+ / DC− terminals','DC+ and DC−','Verify cold Voc, operating voltage, MPPT current and inverter short-circuit-current limits');
+ // AC circuit is shown as its own route so users can trace inverter terminals to the grid/load.
+ s.push(txt(22,350,'B. AC SIDE — INVERTER TO LOAD / GRID',12,700,'start',ac));
+ const acDev=[{x:22,w:150,t:'INVERTER AC',sub:d.ph==='3'?'L1 · L2 · L3 · N':'L · N',fill:'#eaf8f3',stroke:'#16836b'},{x:230,w:145,t:'AC BREAKER',sub:'poles / rating TBD',fill:'#eff6ff',stroke:'#3972d8'},{x:435,w:145,t:'AC SPD',sub:yes('acspd')?'branch to PE':'not shown',fill:'#f1f5f9',stroke:'#64748b'},{x:640,w:145,t:'METER',sub:'utility spec TBD',fill:'#eff6ff',stroke:'#3972d8'},{x:845,w:145,t:'MAIN DB',sub:'loads / grid',fill:'#f8fafc',stroke:'#62748a'},{x:1050,w:125,t:d.system==='offgrid'?'AC LOADS':'GRID / LOAD',sub:d.system==='offgrid'?'local loads':'utility interface',fill:'#f8fafc',stroke:'#62748a'}];
+ acDev.forEach((q,idx)=>{
+   s.push(box(q.x,378,q.w,56,q.t,q.sub,q.fill,q.stroke));
+   const n=d.ph==='3'?4:2, xs=Array.from({length:n},(_,k)=>q.x+q.w/2+(k-(n-1)/2)*19);
+   const termLabels=d.ph==='3'?['L1','L2','L3','N']:['L','N'];
+   xs.forEach((x,k)=>{s.push(`<rect x="${x-6.5}" y="425" width="13" height="9" rx="1.5" fill="#cbd5e1" stroke="#64748b" stroke-width=".8"/><circle cx="${x}" cy="429.5" r="3" fill="#e5e7eb" stroke="#475569" stroke-width="1"/><path d="M${x-1.5} 428.5 L${x+1.5} 430.5" stroke="#334155" stroke-width=".8"/>`);if(idx===0)s.push(txt(x,420,termLabels[k],7,700,'middle',k===0?l1:k===1?neutral:k===2?l3:neutral));});
+ });
+ const acYs=three?(d.ph==='3'?[451,463,475,487]:[451,463,475]):[468];
+ const labels=three?(d.ph==='3'?['L1','L2','L3','N']:['L','N','PE']):[d.ph==='3'?'L1/L2/L3/N':'L/N'];
+ const colors=three?(d.ph==='3'?[l1,l2,l3,neutral]:[l1,neutral,earth]):[ac];
+ const points=[172,230,375,435,580,640,785,845,990,1050,1175];
+ if(three){
+   // Each AC conductor is continuous through the device chain, with a matching label and color.
+   acYs.forEach((yy,i)=>{
+     s.push(txt(24,yy+4,labels[i],9,700,'start',colors[i]));
+     for(let j=0;j<points.length-1;j++){s.push(line(points[j],yy,points[j+1],yy,colors[i],2.8));if(d.ph==='1'&&labels[i]==='PE')s.push(line(points[j],yy,points[j+1],yy,'#eab308',1.2));}
+     [172,230,375,435,580,640,785,845,990,1050,1175].forEach(x=>{s.push(line(x,434,x,yy,colors[i],1.5));if(d.ph==='1'&&labels[i]==='PE')s.push(line(x,434,x,yy,'#eab308',.7));s.push(terminal(x,434,'',colors[i]));});
+   });
+   s.push(txt(600,510,d.ph==='3'?'L1, L2, L3 and N are individually routed; PE/bonding is shown separately.':'Single-phase L and N shown separately; PE is shown separately.',10,400,'middle','#526176'));
+   cable('C-AC1','Inverter AC terminals','AC breaker input','L1 / L2 / L3 / N (or L / N)','Each conductor is individually drawn; confirm terminal sequence and phase rotation');
+   cable('C-AC2','AC breaker output','AC SPD / bus','L1 / L2 / L3 / N + PE to SPD as applicable','SPD is a parallel branch; follow device wiring instructions');
+   cable('C-AC3','AC bus / breaker','Meter and main distribution board','L1 / L2 / L3 / N (or L / N)','Conductor sizes, neutral switching and meter placement require design verification');
+   cable('C-AC4','Main distribution board','Utility / loads','Phase conductors, neutral and PE as applicable','Grid protection, anti-islanding and utility interface must be confirmed');
+ }else{
+   const yy=468;s.push(txt(24,yy+4,'AC bundle',9,700,'start',l1));for(let j=0;j<points.length-1;j++){s.push(line(points[j],yy,points[j+1],yy,'#d1d5db',8),line(points[j],yy,points[j+1],yy,l1,3));}[172,230,375,435,580,640,785,845,990,1050,1175].forEach(x=>{s.push(line(x,434,x,yy,l1,1.8),terminal(x,434,'',l1));}); 
+   s.push(txt(600,510,d.ph==='3'?'One line represents the 3-phase bundle L1/L2/L3/N; see three-line view for each conductor.':'One line represents L/N; see three-line view for individual conductors.',10,400,'middle','#526176'));
+   cable('C-AC1','Inverter AC terminals','AC breaker input','AC circuit represented by one line','Physical conductors: '+(d.ph==='3'?'L1/L2/L3/N plus PE as applicable':'L/N/PE as applicable'));
+   cable('C-AC2','AC breaker / bus','AC SPD','SPD branch + PE as required','SPD is a parallel branch, not series');
+   cable('C-AC3','AC bus','Meter / main distribution board','AC circuit represented by one line','Confirm actual conductor count, neutral and PE routing');
+   cable('C-AC4','Main distribution board','Grid / loads','AC circuit represented by one line','Utility interface and protection settings TBD');
+ }
+ // SPD branch explicitly connects from the AC bus down to the SPD and PE, never inline.
+ if(yes('acspd')){s.push(line(510,434,510,535,neutral,1.7,'5 4'),box(465,535,90,38,'AC SPD','shunt branch','#f1f5f9','#64748b'));if(yes('earth')){s.push(line(510,573,510,587,earth,1.8),line(495,587,525,587,earth,1.8),line(500,592,520,592,earth,1.8),line(505,597,515,597,earth,1.8));}}
+ if(yes('earth')){s.push(line(930,434,930,535,earth,1.8,'5 4'),box(878,535,104,38,'PE BAR','bonding TBD','#eaf8f3','#16836b'));cable('PE-01','Module frames / inverter / enclosure','Protective earth bar / MET','PE and bonding conductors','Sizing, continuity and earth electrode design must be calculated');}
+ const batt=$('battery').value==='yes'||($('battery').value==='auto'&&d.system!=='grid');
+ if(batt){s.push(txt(22,620,'C. BATTERY CIRCUIT',12,700,'start',purple));s.push(box(22,635,150,48,'BATTERY','BMS / terminals','#f5f0ff',purple));s.push(line(172,653,250,653,dc,3),line(172,665,250,665,dcNeg,3),box(250,635,155,48,'BATTERY FUSE','disconnect / rating TBD','#f5f0ff',purple),line(405,653,485,653,dc,3),line(405,665,485,665,dcNeg,3),box(485,635,180,48,'HYBRID INVERTER','battery port / DC bus','#eaf8f3','#16836b'),terminal(172,653,'+',dc),terminal(172,665,'−',dcNeg),terminal(250,653,'+',dc),terminal(250,665,'−',dcNeg),terminal(405,653,'+',dc),terminal(405,665,'−',dcNeg),terminal(485,653,'+',dc),terminal(485,665,'−',dcNeg));s.push(txt(700,654,`${$('benergy').value} kWh · ${$('bvoltage').value} V nominal`,10,400,'start',purple));s.push(txt(700,672,'Confirm chemistry, BMS protocol, voltage window, fault current and cable/fuse ratings.',9,400,'start','#6d28d9'));cable('BAT-01','Battery + / − terminals','Battery fuse / disconnect','Battery positive (+) and negative (−)','Fuse near battery as required; select DC interrupt rating and cable ampacity');cable('BAT-02','Battery disconnect','Compatible inverter battery port','Battery + / −, communications and PE as applicable','Verify manufacturer-approved battery/inverter compatibility and BMS communication');}
+ const noteY=batt?706:620;s.push(line(22,noteY-20,1178,noteY-20,'#d8e0ea',1));s.push(txt(24,noteY,'CABLE COLOUR KEY · IEC-STYLE EXAMPLE',11,700,'start'));s.push(line(24,noteY+18,53,noteY+18,dc,4));s.push(txt(60,noteY+22,'DC + (red)',10,600,'start',dc));s.push(line(190,noteY+18,219,noteY+18,dcNeg,4));s.push(txt(226,noteY+22,'DC − (black)',10,600,'start',dcNeg));s.push(line(365,noteY+18,394,noteY+18,l1,4));s.push(txt(401,noteY+22,'L1 (brown)',10,600,'start',l1));s.push(line(530,noteY+18,559,noteY+18,l2,4));s.push(txt(566,noteY+22,'L2 (black)',10,600,'start',l2));s.push(line(670,noteY+18,699,noteY+18,l3,4));s.push(txt(706,noteY+22,'L3 (grey)',10,600,'start',l3));s.push(line(800,noteY+18,829,noteY+18,neutral,4));s.push(txt(836,noteY+22,'N (blue)',10,600,'start',neutral));s.push(line(24,noteY+42,53,noteY+42,earth,4));s.push(line(24,noteY+42,53,noteY+42,'#eab308',1.7));s.push(txt(60,noteY+46,'PE protective earth (green/yellow)',10,600,'start',earth));s.push(txt(24,noteY+68,`Cold Voc estimate: ${d.coldVoc.toFixed(1)} V/string · STC string Vmp: ${d.vmpString.toFixed(1)} V · indicative max ${d.parallel} string(s)/MPPT`,10,400,'start'));s.push(txt(24,noteY+88,'Colour conventions vary by country, circuit and project specification. Confirm the adopted local standard before installation.',10,600,'start','#a34a13'));s.push(txt(24,noteY+106,'Conceptual routing only: cable sizes, terminal numbers, fault ratings and code compliance are NOT verified.',10,700,'start','#a34a13'));s.push('</svg>');$('drawing').innerHTML=s.join('');
+ $('cables').innerHTML=cableRows.map(r=>`<tr>${r.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('');
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));calc()}));
+$('generate').addEventListener('click',calc);
+$('reset').addEventListener('click',()=>{ids.forEach(id=>$(id).value=initial[id]);view='sld';document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===view)));calc()});
+$('download').addEventListener('click',()=>{const svg=$('drawing').querySelector('svg');const blob=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=($('project').value||'solar-pv').replace(/[^a-z0-9-_]+/gi,'_')+'-'+view+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+$('print').addEventListener('click',()=>window.print());
+ids.forEach(id=>$(id).addEventListener('change',()=>{ /* User edits are applied when Generate is clicked. */ }));
+calc();
+})();
+</script>
+</body></html>
